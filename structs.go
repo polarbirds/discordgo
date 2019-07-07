@@ -13,6 +13,7 @@ package discordgo
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sync"
@@ -198,6 +199,14 @@ const (
 	ChannelTypeGuildCategory
 )
 
+// ErrNotATextChannel gets returned when an action gets called on a channel
+// that does not support sending messages to them
+var ErrNotATextChannel = errors.New("not a text or dm channel")
+
+// ErrNotAVoiceChannel gets thrown when an action gets called on a channel
+// that is not a Guild Voice channel
+var ErrNotAVoiceChannel = errors.New("not a voice channel")
+
 // A Channel holds all data related to an individual Discord channel.
 type Channel struct {
 	// The ID of the channel.
@@ -252,6 +261,36 @@ type Channel struct {
 // Mention returns a string which mentions the channel
 func (c *Channel) Mention() string {
 	return fmt.Sprintf("<#%s>", c.ID)
+}
+
+// SendMessage sends a message to the channel
+// content         : message content to send if provided
+// embed           : embed to attach to the message if provided
+// files           : files to attach to the message if provided
+func (c *Channel) SendMessage(s *Session, content string, embed *MessageEmbed, files []*File) (message *Message, err error) {
+	if c.Type == ChannelTypeGuildVoice || c.Type == ChannelTypeGuildCategory {
+		err = ErrNotATextChannel
+		return
+	}
+
+	data := &MessageSend{
+		Content: content,
+		Embed:   embed,
+		Files:   files,
+	}
+
+	return c.SendMessageComplex(s, data)
+}
+
+// SendMessageComplex sends a message to the channel
+// data          : MessageSend object with the data to send
+func (c *Channel) SendMessageComplex(s *Session, data *MessageSend) (message *Message, err error) {
+	if c.Type == ChannelTypeGuildVoice || c.Type == ChannelTypeGuildCategory {
+		err = ErrNotATextChannel
+		return
+	}
+
+	return s.ChannelMessageSendComplex(c.ID, data)
 }
 
 // A ChannelEdit holds Channel Field data for a channel edit.
